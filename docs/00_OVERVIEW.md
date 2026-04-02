@@ -50,6 +50,11 @@
 | 06 | [UI_LAYER](06_UI_LAYER.md) | React + Ink 终端 UI | 了解 |
 | 07 | [SERVICES](07_SERVICES.md) | 服务层（API、MCP、压缩） | 了解 |
 | 08 | [HIDDEN_FEATURES](08_HIDDEN_FEATURES/) | 实验性功能详解 | 探索 |
+|  | └─ [01_KAIROS](08_HIDDEN_FEATURES/01_KAIROS.md) | 下一代渲染引擎、主动模式 | |
+|  | └─ [02_BRIDGE_CCR](08_HIDDEN_FEATURES/02_BRIDGE_CCR.md) | 远程控制全家桶 | |
+|  | └─ [03_ULTRAPLAN](08_HIDDEN_FEATURES/03_ULTRAPLAN.md) | 云端规划执行 | |
+|  | └─ [04_BUDDY](08_HIDDEN_FEATURES/04_BUDDY.md) | 宠物精灵系统 | |
+|  | └─ [05_ORCHESTRATION](08_HIDDEN_FEATURES/05_ORCHESTRATION.md) | COORDINATOR 与 FORK 编排 | |
 
 ### 第四阶段：实践
 
