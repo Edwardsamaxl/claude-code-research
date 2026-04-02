@@ -263,4 +263,4 @@ interface ToolHooks {
 ## 下一步
 
 ← [06_UI_LAYER.md](06_UI_LAYER.md) 返回 UI 层
-→ [08_HIDDEN_FEATURES.md](08_HIDDEN_FEATURES.md) 继续学习隐藏功能
+→ [08_HIDDEN_FEATURES/README.md](08_HIDDEN_FEATURES/README.md) 继续学习隐藏功能

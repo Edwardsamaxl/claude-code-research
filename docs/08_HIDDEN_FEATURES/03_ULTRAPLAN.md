@@ -95,4 +95,4 @@ ULTRAPLAN = **Ultra + Plan**，把规划任务交给 CCR（Claude Code on the We
 ## 下一步
 
 ← [02_BRIDGE_CCR.md](02_BRIDGE_CCR.md)
-→ [04_PROACTIVE_BUDDY.md](04_PROACTIVE_BUDDY.md)
+→ [04_BUDDY.md](04_BUDDY.md)
