@@ -87,4 +87,5 @@ Agent type 'worker' not found. Available agents: general-purpose, ...
 
 ## 下一步
 
+← [07_SERVICES.md](../07_SERVICES.md) 返回服务层
 → [01_KAIROS.md](01_KAIROS.md) 开始探索隐藏功能

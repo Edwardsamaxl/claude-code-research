@@ -59,5 +59,5 @@ Agent 编排系统围绕三个核心问题展开：
 
 ## 下一步
 
-← [00_OVERVIEW.md](../00_OVERVIEW.md) 返回学习路线图
+← [02_STARTUP.md](../02_STARTUP.md) 学习启动流程
 → [01_CORE_CONCEPTS.md](01_CORE_CONCEPTS.md) 开始学习 Agent 核心概念
