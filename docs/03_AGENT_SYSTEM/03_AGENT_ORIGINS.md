@@ -23,18 +23,18 @@
 interface BaseAgentDefinition {
   agentType: string           // 唯一标识，如 "general-purpose"、"Explore"
   whenToUse: string            // 使用场景描述（给用户看）
-  tools?: string[]            // 可用工具列表，['*'] 表示全部
+  tools: string[]            // 可用工具列表，['*'] 表示全部
   disallowedTools?: string[]   // 明确禁止的工具
-  model?: string              // 'sonnet'、'opus'、'haiku' 或 'inherit'
-  maxTurns?: number           // 最大执行轮次
-  permissionMode?: PermissionMode  // 权限模式
+  model: string              // 'sonnet'、'opus'、'haiku' 或 'inherit'
+  maxTurns: number          // 最大执行轮次
+  permissionMode: PermissionMode  // 权限模式
   getSystemPrompt: () => string | Promise<string>  // system prompt 生成器
-  hooks?: FrontmatterHook[]   // 生命周期钩子
-  skills?: string[]            // 预加载的技能
-  mcpServers?: McpServerSpec[] // Agent 专用的 MCP 服务器
-  omitClaudeMd?: boolean       // 是否排除 CLAUDE.md
-  background?: boolean         // 是否强制后台运行
-  isolation?: 'worktree'       // 是否使用 git worktree 隔离
+  hooks: FrontmatterHook[]   // 生命周期钩子
+  skills: string[]            // 预加载的技能
+  mcpServers: McpServerSpec[] // Agent 专用的 MCP 服务器
+  omitClaudeMd: boolean       // 是否排除 CLAUDE.md
+  background: boolean         // 是否强制后台运行
+  isolation: 'worktree'       // 是否使用 git worktree 隔离
 }
 ```
 
@@ -244,7 +244,7 @@ export const ONE_SHOT_BUILTIN_AGENT_TYPES: ReadonlySet<string> = new Set([
 ])
 ```
 
-**优化点**：跳过 `agentId`/`SendMessage`/`usage trailer` 等字段，节省 ~135 chars × 34M+ runs/week。
+**优化点**：跳过 `agentId`/`SendMessage`/`usage trailer` 等字段，节省约 135 chars × 34M+ runs/week。
 
 ### 4.2 Fork Agent
 

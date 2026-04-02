@@ -1,122 +1,95 @@
-# Claude Code 源码还原
+# Claude Code 源码学习版
 
-> 从 source map 还原并可运行的 Claude Code CLI 完整 TypeScript 源码
+> 深入剖析世界上最先进的 AI Agent 系统的构造与特性
 
 ![预览](preview.png)
 
 > [!WARNING]
-> 本仓库为**非官方**版本，基于公开 npm 发布包的 source map 还原，**仅供研究学习使用**。
-> 不代表 Anthropic 官方原始内部开发仓库结构。
+> **免责声明**：本仓库为**非官方**学习版本，基于公开 npm 包的 source map 还原。源码版权归 [Anthropic](https://www.anthropic.com) 所有，本仓库**仅供研究学习使用**，请勿用于商业用途。如有侵权，请联系删除。
+
+---
+
+## 源码来源
+
+本仓库的学习内容（解释文档）由本人撰写，源码还原自以下仓库：
+
+- **原始还原仓库**：[pengchengneo/Claude-Code](https://github.com/pengchengneo/Claude-Code)
+- **npm 包来源**：[@anthropic-ai/claude-code](https://www.npmjs.com/package/@anthropic-ai/claude-code)
+
+> [!NOTE]
 > 部分模块因 source map 无法完整还原，已用兼容 shim 或降级实现替代，行为可能与原版有所不同。
 
-## 当前状态
+## 学习路径
 
-- 源码树可还原并可在本地开发流程中运行
-- `bun install` 可成功安装依赖
-- `bun run version` 可正常输出版本号
-- `bun run dev` 可启动还原后的 CLI 入口，作为交互式进程运行
+### 必读核心
 
-## 基本信息
-
-| 项目 | 说明 |
+| 文档 | 内容 |
 |------|------|
-| 来源 | [@anthropic-ai/claude-code](https://www.npmjs.com/package/@anthropic-ai/claude-code) npm 包 |
-| 源文件数 | 1,987 个 TypeScript/TSX 文件 |
-| 运行时要求 | Bun ≥ 1.3.5、Node.js ≥ 24 |
+| [docs/00_OVERVIEW.md](docs/00_OVERVIEW.md) | 学习路线图总纲 |
+| [docs/01_ARCHITECTURE.md](docs/01_ARCHITECTURE.md) | 项目架构、设计模式、核心模块 |
+
+### Agent 系统（核心重点）
+
+| 文档 | 内容 |
+|------|------|
+| [Agent 核心概念](docs/03_AGENT_SYSTEM/01_CORE_CONCEPTS.md) | Agent 定义、类型、生命周期 |
+| [Agent 运行机制](docs/03_AGENT_SYSTEM/02_RUN_AGENT.md) | runAgent 执行流程、AsyncGenerator |
+| [Agent 来源](docs/03_AGENT_SYSTEM/03_AGENT_ORIGINS.md) | 内置、自定义、Team Agent |
+| [任务系统](docs/03_AGENT_SYSTEM/04_TASK_SYSTEM.md) | 七种任务类型、状态机 |
+| [多 Agent 协作](docs/03_AGENT_SYSTEM/05_MULTI_AGENT.md) | 并行策略、错误恢复 |
+| [上下文压缩](docs/03_AGENT_SYSTEM/06_CONTEXT_COMPRESSION.md) | 三层压缩体系详解 |
+
+### 进阶
+
+| 文档 | 内容 |
+|------|------|
+| [docs/02_STARTUP.md](docs/02_STARTUP.md) | 启动流程、状态初始化 |
+| [docs/04_TOOLS.md](docs/04_TOOLS.md) | 工具系统原理 |
+| [docs/05_COMMANDS.md](docs/05_COMMANDS.md) | 斜杠命令系统 |
+| [docs/06_UI_LAYER.md](docs/06_UI_LAYER.md) | React + Ink 终端 UI |
+| [docs/07_SERVICES.md](docs/07_SERVICES.md) | 服务层（API、MCP、压缩） |
+
+### 隐藏功能探索
+
+| 文档 | 内容 |
+|------|------|
+| [docs/08_HIDDEN_FEATURES/README.md](docs/08_HIDDEN_FEATURES/README.md) | 实验性功能索引 |
+| [KAIROS 模式](docs/08_HIDDEN_FEATURES/01_KAIROS.md) | 助手模式 |
+| [Bridge CCR](docs/08_HIDDEN_FEATURES/02_BRIDGE_CCR.md) | 远程桥接控制 |
+| [UltraPlan](docs/08_HIDDEN_FEATURES/03_ULTRAPLAN.md) | 超级规划模式 |
+| [Buddy 系统](docs/08_HIDDEN_FEATURES/04_BUDDY.md) | 伴侣精灵 |
+| [Orchestration](docs/08_HIDDEN_FEATURES/05_ORCHESTRATION.md) | 编排机制 |
+
+### 实践验证
+
+| 文档 | 内容 |
+|------|------|
+| [docs/09_PRACTICE.md](docs/09_PRACTICE.md) | 练习题和学习验证 |
+
+---
 
 ## 快速开始
 
 ```bash
 # 安装依赖
 bun install
-
 # 启动还原后的 CLI
 bun run dev
-
 # 输出版本号
 bun run version
 ```
 
-## 目录结构
+---
 
-```
-├── src/                    # 还原的核心源码
-│   ├── main.tsx            # CLI 主入口
-│   ├── dev-entry.ts        # 开发入口
-│   ├── commands.ts         # 命令注册
-│   ├── commands/           # 斜杠命令实现（100+）
-│   ├── tools/              # 工具实现（50+）
-│   ├── components/         # 终端 UI 组件（React + Ink）
-│   ├── hooks/              # 自定义 React Hooks
-│   ├── services/           # API、MCP、分析等服务
-│   ├── utils/              # 工具函数
-│   ├── ink/                # 自定义 Ink 终端渲染器
-│   ├── vim/                # Vim 模式引擎
-│   ├── bridge/             # 远程桥接/控制
-│   ├── coordinator/        # 多 Agent 协调器
-│   ├── assistant/          # KAIROS 助手模式
-│   ├── buddy/              # 伴侣精灵系统
-│   ├── voice/              # 语音交互
-│   ├── skills/             # 技能系统
-│   ├── plugins/            # 插件系统
-│   ├── remote/             # 远程会话管理
-│   ├── server/             # IDE 集成直连服务器
-│   └── keybindings/        # 快捷键绑定
-├── shims/                  # 兼容性 shim 包（不可还原的原生模块替代）
-├── vendor/                 # 原生绑定源码
-├── package.json            # 项目配置
-├── tsconfig.json           # TypeScript 配置
-└── bun.lock                # 依赖锁文件
-```
+## 项目信息
 
-## 架构概览
-
-### 启动流程
-
-```
-entrypoints/cli.tsx  →  main.tsx  →  REPL 渲染
-     ↓                    ↓
-  快速路径            完整初始化
-(version/daemon)    (auth/MCP/settings/Commander.js)
-```
-
-### 工具系统（`src/tools/`，50+ 个工具）
-
-| 类别 | 工具 |
+| 项目 | 说明 |
 |------|------|
-| 文件操作 | `FileReadTool`、`FileWriteTool`、`FileEditTool`、`GlobTool`、`GrepTool` |
-| 执行环境 | `BashTool`、`REPLTool`、`PowerShellTool`、`NotebookEditTool` |
-| 网络 | `WebFetchTool`、`WebSearchTool`、`WebBrowserTool` |
-| AI 协作 | `AgentTool`、`SendMessageTool`、`TeamCreateTool`、`TeamDeleteTool` |
-| 任务管理 | `TaskCreateTool`、`TaskGetTool`、`TaskListTool`、`TaskUpdateTool`、`TaskStopTool` |
-| MCP | `MCPTool`、`McpAuthTool`、`ListMcpResourcesTool`、`ReadMcpResourceTool` |
-| 工作流 | `EnterPlanModeTool`、`ExitPlanModeTool`、`EnterWorktreeTool`、`ExitWorktreeTool` |
-| 其他 | `SkillTool`、`ConfigTool`、`ScheduleCronTool`、`MonitorTool`、`WorkflowTool` |
+| 源码文件数 | 1,987 个 TypeScript/TSX 文件 |
+| UI 框架 | React + Ink（终端 UI） |
+| 运行时要求 | Bun ≥ 1.3.5 / Node.js ≥ 24 |
 
-### 服务层（`src/services/`）
-
-- **`api/`** — Anthropic API 客户端、重试、速率限制、用量追踪
-- **`mcp/`** — MCP 客户端/服务端、OAuth、通道管理
-- **`compact/`** — 会话自动压缩策略
-- **`analytics/`** — GrowthBook 特性开关、Datadog、事件日志
-
-### UI 层
-
-- **`ink/`** — 自定义 Ink 分支，含布局、焦点管理、ANSI 渲染、虚拟滚动
-- **`components/`**（148 文件）— 终端 UI：消息、输入、diff 视图、权限对话框、状态栏
-- **`hooks/`**（87 文件）— React Hooks：工具、语音、IDE、vim、会话、任务
-- **`vim/`** — 完整 vim 键绑定引擎
-
-## 还原说明
-
-Source map 无法完整还原原始仓库，以下内容可能缺失或降级：
-
-- 纯类型文件（type-only files）
-- 构建时生成的文件
-- 私有包装器和原生绑定
-- 动态导入和资源文件
-
-`shims/` 目录包含了对不可还原模块的兼容性替代实现。
+---
 
 ## 声明
 

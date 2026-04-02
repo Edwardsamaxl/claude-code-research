@@ -1,348 +1,266 @@
-# 08 - 服务层
+# 07 - 服务层
 
-> 后台服务和基础设施
+> 后台服务和基础设施，为 Claude Code 的核心功能提供支撑
 
-## 概览
+## 1. 学习目标
+
+学完本章后，你将理解：
+
+- API 服务的重试策略和速率限制处理
+- 分析服务如何避免循环依赖
+- LSP 服务的异步初始化架构
+- 工具执行钩子系统的设计
+
+## 2. 服务概览
 
 ```
 src/services/
 ├── api/               # Anthropic API 客户端
-├── mcp/              # MCP 协议实现
-├── compact/          # 会话压缩
-├── analytics/        # 遥测和 A/B 测试
+├── analytics/         # 事件日志和 A/B 测试
+├── compact/          # 上下文压缩
+├── contextCollapse/   # 上下文折叠
 ├── SessionMemory/    # 会话记忆
-├── tools/           # 工具相关服务
-├── lsp/             # 语言服务器协议
+├── mcp/              # MCP 协议（详见 04_TOOLS.md）
+├── lsp/              # 语言服务器协议
+├── tools/            # 工具执行服务
+├── oauth/            # OAuth 认证
+├── autoDream/        # 自动分析服务
+├── voice/            # 语音服务
+├── tokenEstimation/  # Token 估算
 └── ...
 ```
 
-## API 服务
+## 3. API 服务
+
+API 服务封装了与 Claude API 的通信，是 Claude Code 的核心基础设施。
+
+### 3.1 重试机制设计
+
+Claude Code 的重试针对不同错误有不同策略：
+
+| 错误类型 | 策略 | 原理 |
+|----------|------|------|
+| 429 (限速) | 订阅用户不重试，普通用户重试 | 订阅用户有更高配额 |
+| 529 (过载) | 前台请求重试，后台请求放弃 | 避免放大过载 |
+| 401 (认证) | 清除缓存后重试 | token 可能过期 |
+| 400 (上下文溢出) | 调整 max_tokens 后重试 | 动态适配上下文 |
+| 5xx (服务端错误) | 指数退避重试 | 等待恢复 |
+
+**模型降级（529 处理）：**
+
+连续 3 次 529 错误后，自动切换到备用模型。这是一种熔断机制，避免持续请求过载的模型。
+
+### 3.2 速率限制层级
+
+| 层级 | 来源 | 行为 |
+|------|------|------|
+| API 层面 | `Retry-After` 响应头 | 等待指定时间 |
+| 用户层面 | 429 + 订阅状态 | 订阅用户显示提示 |
+| 容量层面 | 529 + 查询来源 | 前台重试/后台放弃 |
+| 持久模式 | UNATTENDED_RETRY | 后台无限重试 |
+
+## 4. 分析服务
+
+分析服务负责事件追踪和 A/B 测试。
+
+### 4.1 零依赖设计
+
+Claude Code 的分析模块不 import 任何其他模块，避免循环依赖：
 
 ```typescript
-// src/services/api/claude.ts
-
-// Anthropic API 客户端
-export class ClaudeClient {
-  constructor(config: APIConfig) {
-    this.baseURL = config.baseURL || 'https://api.anthropic.com'
-    this.apiKey = config.apiKey
+/**
+ * DESIGN: This module has NO dependencies to avoid import cycles.
+ * Events are queued until attachAnalyticsSink() is called during app initialization.
+ */
+export function logEvent(eventName: string, metadata: LogEventMetadata): void {
+  if (sink === null) {
+    eventQueue.push({ eventName, metadata, async: false })
+    return
   }
-
-  async createMessage(params: CreateMessageParams): Promise<Message> {
-    // 发送消息到 Claude API
-    // 处理重试和速率限制
-  }
-
-  async streamMessage(params: CreateMessageParams): AsyncGenerator<Message> {
-    // 流式响应
-  }
+  sink.logEvent(eventName, metadata)
 }
 ```
 
-### 重试机制
+### 4.2 事件队列机制
+
+在 sink 附加之前，事件暂存到队列：
 
 ```typescript
-// src/services/api/retry.ts
+const eventQueue: QueuedEvent[] = []
 
-interface RetryConfig {
-  maxRetries: number
-  initialDelay: number
-  backoffMultiplier: number
-}
-
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  config: RetryConfig
-): Promise<T> {
-  let lastError: Error
-  for (let i = 0; i < config.maxRetries; i++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error
-      await sleep(config.initialDelay * (config.backoffMultiplier ** i))
-    }
-  }
-  throw lastError
-}
-```
-
-### 速率限制
-
-```typescript
-// src/services/api/rateLimit.ts
-
-export class RateLimiter {
-  private tokens: number
-  private lastRefill: number
-
-  async acquire(): Promise<void> {
-    // 检查是否超过速率限制
-    // 等待直到有可用 tokens
+// 应用启动时附加 sink，队列异步清空
+export function attachAnalyticsSink(newSink: AnalyticsSink): void {
+  sink = newSink
+  if (eventQueue.length > 0) {
+    const queuedEvents = [...eventQueue]
+    eventQueue.length = 0
+    queueMicrotask(() => {
+      for (const event of queuedEvents) {
+        sink!.logEvent(event.eventName, event.metadata)
+      }
+    })
   }
 }
 ```
 
-## MCP 服务
+**设计好处：**
+- 启动早期的事件不丢失
+- 不阻塞启动流程
+- 避免模块间循环依赖
+
+### 4.3 数据安全标记
+
+分析服务使用类型标记确保不泄露敏感数据：
+
+| 标记 | 用途 |
+|------|------|
+| `I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS` | 验证不包含代码/路径 |
+| `I_VERIFIED_THIS_IS_PII_TAGGED` | PII 标记字段 |
+
+### 4.4 A/B 测试框架
+
+GrowthBook 是一个开源的 A/B 测试和功能开关框架。在 Claude Code 中用于：
+
+| 用途 | 说明 |
+|------|------|
+| 功能开关 | 通过配置控制功能开启/关闭，无需发版 |
+| A/B 测试 | 对不同用户群体实验新功能 |
+| 远程配置 | 不重新部署也能调整参数 |
 
 ```typescript
-// src/services/mcp/
-
-// MCP 客户端
-export async function connectToServer(
-  name: string,
-  config: McpServerConfig
-): Promise<MCPServerConnection> {
-  // 1. 建立连接
-  // 2. 发送 initialize
-  // 3. 返回连接对象
-}
-
-// 获取 MCP 工具
-export async function fetchToolsForClient(
-  client: MCPServerConnection
-): Promise<Tool[]> {
-  // 1. 发送 tools/list
-  // 2. 转换工具定义
-  // 3. 返回 Tools
-}
+// 获取实验参数值（有缓存，可能过期）
+const value = getFeatureValue_CACHED_MAY_BE_STALE('feature_name', defaultValue)
 ```
 
-### MCP 通道管理
+## 5. LSP 服务
+
+LSP (Language Server Protocol) 服务提供代码诊断和被动反馈。
+
+### 5.1 为什么需要 LSP？
+
+工具执行只能看到当前调用的结果，但代码可能有语法错误、类型问题、lint 警告等。LSP 服务在后台持续分析，提供这些反馈。
+
+### 5.2 异步初始化
+
+LSP 服务不阻塞应用启动：
 
 ```typescript
-// src/services/mcp/channel.ts
+// manager.ts
+type InitializationState = 'not-started' | 'pending' | 'success' | 'failed'
 
-interface MCPServerConnection {
-  name: string
-  type: 'connected' | 'disconnected' | 'error'
-  tools: Tool[]
+// 初始化状态
+let initializationState: InitializationState = 'not-started'
 
-  // 清理函数
-  cleanup: () => Promise<void>
+// 获取管理器实例（可能未初始化）
+export function getLspServerManager(): LSPServerManager | undefined {
+  if (initializationState === 'failed') {
+    return undefined  // 失败也不阻塞
+  }
+  return lspManagerInstance
 }
 ```
 
-## 压缩服务
+**好处：**
+- 启动不受 LSP 影响
+- LSP 失败不影响核心功能
+- 调用方优雅处理未初始化状态
 
-Claude Code 的上下文管理是分层设计的，包含三种压缩机制：
+### 5.3 核心组件
+
+| 组件 | 职责 |
+|------|------|
+| LSPServerManager | 管理服务器生命周期 |
+| LSPServerInstance | 封装单个服务器进程 |
+| LSPClient | 与服务器通信 |
+| LSPDiagnosticRegistry | 存储诊断结果 |
+| passiveFeedback | 处理被动反馈 |
+
+### 5.4 核心文件
+
+| 文件 | 职责 |
+|------|------|
+| `lsp/manager.ts` | 单例管理、异步初始化 |
+| `lsp/LSPServerManager.ts` | 服务器实例管理 |
+| `lsp/LSPServerInstance.ts` | 单个服务器封装 |
+| `lsp/passiveFeedback.ts` | 被动反馈处理 |
+
+## 6. 工具执行钩子
+
+工具执行服务管理工具的完整生命周期。
+
+### 6.1 执行流程
+
+| 步骤 | 说明 |
+|------|------|
+| 1 | 权限检查 |
+| 2 | 执行前钩子 (preToolUse) |
+| 3 | 执行工具 |
+| 4 | 执行后钩子 (postToolUse) |
+| 5 | 结果渲染 |
+
+### 6.2 钩子接口
 
 ```typescript
-// src/services/compact/
-// src/services/contextCollapse/
-// src/utils/toolResultStorage.ts
-```
-
-### 压缩三层体系
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    上下文管理三层                          │
-├─────────────────────────────────────────────────────────────┤
-│  1. Microcompact（微压缩）                               │
-│     - 单个工具结果太大时存磁盘，只给 AI 留路径           │
-│     - 触发：工具结果 > 50KB                              │
-│     - 工具：FileRead, Grep, Glob, Bash, WebSearch 等      │
-│     - 保留最近的 N 个结果（可配置）                      │
-│                                                              │
-│  2. Per-Message Budget（单消息预算）                      │
-│     - 单次 API 调用中所有工具结果的总和限制              │
-│     - 触发：工具结果总和 > 200KB                         │
-│     - 逻辑：选最大的结果存磁盘，保持总大小在预算内       │
-│                                                              │
-│  3. Context Collapse（上下文折叠）                        │
-│     - 多条消息合并为一个摘要                              │
-│     - 触发：上下文接近上限（通过 GrowthBook 配置）       │
-│     - 方式：**让 AI 自己总结**（不是 LLM 做摘要）        │
-│     - 最大输出：20,000 tokens（COMPACT_MAX_OUTPUT_TOKENS）│
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 1. 微压缩（Microcompact）
-
-**核心逻辑**：工具结果太大时，存到磁盘，AI 只看到预览路径
-
-```typescript
-// src/services/compact/microCompact.ts
-
-// 可压缩的工具类型
-const COMPACTABLE_TOOLS = new Set([
-  FILE_READ_TOOL_NAME,   // 文件读取
-  GREP_TOOL_NAME,        // 搜索
-  GLOB_TOOL_NAME,        // 文件匹配
-  WEB_SEARCH_TOOL_NAME,  // 网页搜索
-  WEB_FETCH_TOOL_NAME,   // 网页抓取
-  FILE_EDIT_TOOL_NAME,   // 文件编辑
-  FILE_WRITE_TOOL_NAME,  // 文件写入
-  ...SHELL_TOOL_NAMES,   // Shell 命令
-])
-
-// 触发：超过 50KB 就持久化
-const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000
-```
-
-**两种微压缩路径**：
-
-| 类型 | 触发条件 | 机制 | 缓存影响 |
-|------|----------|------|----------|
-| Cached MC | 支持 cache editing 的模型 | 删除旧结果，API 层用 cache_edits | 保持缓存命中 |
-| Time-based MC | 距离上次响应超过阈值（默认 30 分钟） | 直接清空旧结果内容 | 缓存失效 |
-
-### 2. Per-Message Budget（单消息预算）
-
-**核心逻辑**：单次 API 调用中所有工具结果加起来不能太大
-
-```typescript
-// src/utils/toolResultStorage.ts
-
-// 200KB 限制
-export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 200_000
-
-// 实际处理
-async function enforceToolResultBudget(messages, state) {
-  // 1. 按"API 级用户消息"分组（并行工具结果合并计算）
-  // 2. 选最大的 FRESH 结果存磁盘
-  // 3. 保持总大小在预算内
+interface ToolHooks {
+  preToolUse?: (tool: Tool, input: unknown) => void
+  postToolUse?: (tool: Tool, input: unknown, result: ToolResult) => void
 }
 ```
 
-**关键洞察**：
-- 状态必须稳定，否则破坏 prompt cache
-- once seen, once replaced → 决定是永久的
-- 最多约 400KB 的工具结果（10 × 40KB）
+### 6.3 使用场景
 
-### 3. Context Collapse（上下文折叠）
+| 钩子 | 使用场景 |
+|------|----------|
+| preToolUse | 记录开始时间、权限检查 |
+| postToolUse | 记录执行时长、更新统计、触发压缩检查 |
 
-**核心逻辑**：让 AI 自己总结历史对话
+### 6.4 核心文件
 
-```typescript
-// src/services/compact/compact.ts
+| 文件 | 职责 |
+|------|------|
+| `tools/toolExecution.ts` | 工具执行流程 |
+| `tools/toolHooks.ts` | 钩子接口定义 |
 
-// 折叠流程
-async function collapse(messages, direction) {
-  // 1. 选择要折叠的消息范围
-  // 2. 构建摘要提示词
-  // 3. 调用 AI 生成摘要（最多 20,000 tokens）
-  // 4. 替换原消息为摘要 + 边界标记
-}
+## 7. 其他服务
 
-// 折叠方向
-type Direction = 'from' | 'up_to'
-// 'from': 折叠指定位置之后的消息，保留之前的
-// 'up_to': 折叠指定位置之前的消息，保留之后的
-```
+| 服务 | 目录 | 用途 |
+|------|------|------|
+| OAuth | `oauth/` | 用户认证和 token 管理 |
+| autoDream | `autoDream/` | 后台自动分析任务 |
+| SessionMemory | `SessionMemory/` | 持续提取结构化记忆 |
+| compact | `compact/` | 工具结果压缩 |
+| contextCollapse | `contextCollapse/` | 上下文折叠 |
+| MCP | `mcp/` | 外部工具扩展（详见 04_TOOLS.md） |
+| tokenEstimation | `tokenEstimation.ts` | Token 数量估算 |
+| voice | `voice.ts` | 语音输入支持 |
+| MagicDocs | `MagicDocs/` | 文档生成服务 |
+| PromptSuggestion | `PromptSuggestion/` | 提示建议 |
+| rateLimitMessages | `rateLimitMessages.ts` | 限速提示文案 |
+| claudeAiLimits | `claudeAiLimits.ts` | Claude AI 配额管理 |
+| settingsSync | `settingsSync/` | 配置同步服务 |
+| skillSearch | `skillSearch/` | 技能搜索 |
 
-**折叠机制**：
+## 8. 关键源文件
 
-```
-折叠前：
-[用户消息1] → [助手响应1] → [用户消息2] → [助手响应2] → [用户消息3] → [助手响应3]
-                                                    ↑
-                                              选择这里
+| 服务 | 文件 | 设计亮点 |
+|------|------|----------|
+| API 重试 | `src/services/api/withRetry.ts` | 指数退避、模型降级、熔断机制 |
+| 分析入口 | `src/services/analytics/index.ts` | 零依赖设计、事件队列 |
+| GrowthBook | `src/services/analytics/growthbook.ts` | 功能开关配置 |
+| LSP 管理 | `src/services/lsp/manager.ts` | 异步初始化 |
+| 工具钩子 | `src/services/tools/toolHooks.ts` | 生命周期管理 |
 
-折叠后（direction='up_to'）：
-[用户消息1] → [助手响应1] → [助手响应2]
-                                          │
-                         [上下文折叠边界 - 包含摘要]
-                                          │
-                                 [用户消息3] → [助手响应3]
-```
+## 9. 本章小结
 
-### 触发条件
-
-| 机制 | 触发条件 | 是否自动 |
-|------|----------|----------|
-| 微压缩 | 单个工具结果 > 50KB | ✅ 自动 |
-| Per-Message Budget | 单次调用工具结果总和 > 200KB | ✅ 自动 |
-| Context Collapse | 上下文 token 接近上限 | ✅ 自动（可通过 `/compact` 手动） |
-| Time-based MC | 距离上次响应 > 30 分钟 | ✅ 自动 |
-
-### 关于"让 AI 做总结"
-
-**Context Collapse 是让 AI（Claude）自己总结，而不是用一个单独的 LLM 做摘要。**
-
-流程：
-1. 把要折叠的消息发给 Claude
-2. 请求："请总结以下对话的关键信息"
-3. Claude 生成摘要（最多 20,000 tokens）
-4. 原消息替换为摘要 + 边界标记
-
-好处：
-- 保持总结的连贯性和准确性
-- 只需要一个 API 调用
-- 摘要质量高（上下文完整）
-
-详细原理和代码示例请参阅 [01_ARCHITECTURE.md](01_ARCHITECTURE.md) 的「上下文管理」章节。
-
-## 分析服务
-
-```typescript
-// src/services/analytics/
-
-// 事件日志
-export function logEvent(
-  event: string,
-  properties: Record<string, any>
-): void {
-  // 发送到分析后端
-}
-
-// GrowthBook A/B 测试
-export function getFeatureValue<T>(
-  feature: string,
-  defaultValue: T
-): T {
-  return getFeatureValue_CACHED_MAY_BE_STALE(feature, defaultValue)
-}
-```
-
-## 会话记忆
-
-```typescript
-// src/services/SessionMemory/
-
-interface SessionMemory {
-  importantFacts: string[]
-  userPreferences: Record<string, any>
-  projectContext: string[]
-}
-
-// 提取记忆
-export async function extractMemories(
-  messages: Message[]
-): Promise<SessionMemory> {
-  // AI 分析对话，提取重要信息
-}
-
-// 存储记忆
-export function saveMemory(memory: SessionMemory): void {
-  // 持久化到磁盘
-}
-```
-
-## 工具执行服务
-
-```typescript
-// src/services/tools/toolExecution.ts
-
-// 工具执行前后处理
-export async function executeTool(
-  tool: Tool,
-  input: unknown,
-  context: ToolUseContext
-): Promise<ToolResult> {
-  // 1. 权限检查
-  // 2. 记录开始
-  // 3. 执行
-  // 4. 记录结束
-  // 5. 结果渲染
-}
-```
+- **API 服务**通过智能重试策略处理各种故障，指数退避 + 模型降级 + 熔断机制
+- **分析服务**采用零依赖设计避免循环依赖，事件队列保证早于 sink 的事件不丢失
+- **LSP 服务**异步初始化不阻塞启动，失败不影响核心功能
+- **工具执行钩子**提供完整的生命周期管理，支持 pre/post 回调
+- **MCP 机制**在 04_TOOLS.md 中详细讲解，核心是模板 + 适配器模式
 
 ---
 
-## 待深入
+## 下一步
 
-- [ ] API 客户端的完整重试逻辑
-- [ ] MCP OAuth 实现
-- [ ] 压缩算法细节（详见 01_ARCHITECTURE.md）
+← [06_UI_LAYER.md](06_UI_LAYER.md) 返回 UI 层
+→ [08_HIDDEN_FEATURES.md](08_HIDDEN_FEATURES.md) 继续学习隐藏功能

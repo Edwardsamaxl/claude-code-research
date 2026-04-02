@@ -4,15 +4,14 @@
 
 ## 1. 模块概览
 
-```
-03_AGENT_SYSTEM/
-├── README.md           # 本文档
-├── 01_CORE_CONCEPTS.md # Agent 核心概念：定义、类型、生命周期
-├── 02_RUN_AGENT.md    # runAgent 执行流程：AsyncGenerator、消息流向
-├── 03_AGENT_ORIGINS.md # Agent 来源：内置、自定义、Team Agent
-├── 04_TASK_SYSTEM.md   # 任务系统：七种任务类型、状态机、task-notification
-└── 05_MULTI_AGENT.md  # 多 Agent 协作：并行策略、错误恢复
-```
+| 文档 | 内容 |
+|------|------|
+| `01_CORE_CONCEPTS.md` | Agent 核心概念：定义、类型、生命周期 |
+| `02_RUN_AGENT.md` | runAgent 执行流程：AsyncGenerator、消息流向 |
+| `03_AGENT_ORIGINS.md` | Agent 来源：内置、自定义、Team Agent |
+| `04_TASK_SYSTEM.md` | 任务系统：七种任务类型、状态机、task-notification |
+| `05_MULTI_AGENT.md` | 多 Agent 协作：并行策略、错误恢复 |
+| `06_CONTEXT_COMPRESSION.md` | 上下文压缩：三层压缩体系详解 |
 
 ## 2. 核心问题
 
@@ -54,6 +53,7 @@ Agent 编排系统围绕三个核心问题展开：
 3. [03_AGENT_ORIGINS.md](03_AGENT_ORIGINS.md) — Agent 从哪来？内置、自定义、Team Agent 的区别？
 4. [04_TASK_SYSTEM.md](04_TASK_SYSTEM.md) — 七种任务如何管理？task-notification 如何工作？
 5. [05_MULTI_AGENT.md](05_MULTI_AGENT.md) — 如何并行？各并行模式有什么代价？
+6. [06_CONTEXT_COMPRESSION.md](06_CONTEXT_COMPRESSION.md) — 上下文如何压缩？三层压缩体系详解
 
 ---
 

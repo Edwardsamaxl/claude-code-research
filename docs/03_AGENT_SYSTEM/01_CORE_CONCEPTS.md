@@ -135,7 +135,7 @@ buildForkedMessages(directive, assistantMessage)
 // 4. 结果通过 task-notification 返回
 ```
 
-### 6.3 task-notification 格式
+### 6.3 task-notification 
 
 Agent 执行完成后，通过 task-notification 返回结果：
 
@@ -211,15 +211,13 @@ interface ToolUseContext {
 
 ### 8.3 生命周期
 
-```
-启动 → 初始化 → 执行循环 → 完成/失败 → 清理
-  │         │           │
-  │         │           └─► query() yield 消息
-  │         │
-  │         └─► MCP 连接、frontmatter hooks、技能预加载
-  │
-  └─► AgentTool.call() 返回 agentId
-```
+| 阶段 | 说明 |
+|------|------|
+| 启动 | `AgentTool.call()` 返回 agentId |
+| 初始化 | MCP 连接、frontmatter hooks、技能预加载 |
+| 执行循环 | `query()` yield 消息 |
+| 完成/失败 | 结果通过 task-notification 返回 |
+| 清理 | 资源释放 |
 
 ## 9. 关键源文件
 

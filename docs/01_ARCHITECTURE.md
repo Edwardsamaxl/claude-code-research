@@ -26,40 +26,35 @@ Claude Code 是一个 **AI Agent 平台**，而不是普通的 AI CLI 工具。
 
 Claude Code 采用**能力分组**架构，每个分组代表一个核心能力域：
 
-```
-src/
-├── tools/           # 工具执行：50+ 工具的定义与实现（Read/Edit/Bash/Glob等）
-├── components/      # 界面渲染：React 组件的终端 UI 呈现
-├── services/        # 后台支撑：API 调用、MCP 连接、压缩服务
-├── tasks/           # 生命周期：7 种任务类型的状态追踪与完成管理
-├── coordinator/     # 编排协作：多 Agent 任务的协调与路由
-├── state/           # 状态管理：全局状态存储与订阅发布
-├── skills/          # 技能系统：结构化知识、最佳实践、思考框架
-├── commands/        # 命令系统：100+ 斜杠命令的注册与执行
-└── ...
-```
+| 分组 | 职责 | 示例内容 |
+|------|------|----------|
+| tools | 工具执行 | 50+ 工具的定义与实现（Read/Edit/Bash/Glob等） |
+| components | 界面渲染 | React 组件的终端 UI 呈现 |
+| services | 后台支撑 | API 调用、MCP 连接、压缩服务 |
+| tasks | 生命周期 | 7 种任务类型的状态追踪与完成管理 |
+| coordinator | 编排协作 | 多 Agent 任务的协调与路由 |
+| state | 状态管理 | 全局状态存储与订阅发布 |
+| skills | 技能系统 | 结构化知识、最佳实践、思考框架 |
+| commands | 命令系统 | 100+ 斜杠命令的注册与执行 |
 
 ### 3.1 详细目录结构
 
-```
-claude-code/
-├── src/
-│   ├── main.tsx              # 主入口
-│   ├── commands.ts           # 斜杠命令注册
-│   ├── commands/             # 斜杠命令实现 (100+)
-│   ├── tools/                 # 工具实现 (50+)
-│   ├── components/            # React UI 组件 (148 文件)
-│   ├── hooks/                 # React Hooks (87 文件)
-│   ├── services/              # 服务层
-│   ├── coordinator/           # 多 Agent 协调器
-│   ├── tasks/                 # 任务系统
-│   ├── state/                 # 状态管理
-│   ├── types/                 # 类型定义
-│   └── utils/                 # 工具函数
-├── shims/                     # 模块替代
-├── vendor/                    # 原生绑定
-└── package.json
-```
+| 路径 | 说明 |
+|------|------|
+| `src/main.tsx` | 主入口 |
+| `src/commands.ts` | 斜杠命令注册 |
+| `src/commands/` | 斜杠命令实现 (100+) |
+| `src/tools/` | 工具实现 (50+) |
+| `src/components/` | React UI 组件 (148 文件) |
+| `src/hooks/` | React Hooks (87 文件) |
+| `src/services/` | 服务层 |
+| `src/coordinator/` | 多 Agent 协调器 |
+| `src/tasks/` | 任务系统 |
+| `src/state/` | 状态管理 |
+| `src/types/` | 类型定义 |
+| `src/utils/` | 工具函数 |
+| `shims/` | 模块替代 |
+| `vendor/` | 原生绑定 |
 
 ### 3.2 架构对比
 
@@ -111,17 +106,14 @@ Claude Code 要求所有工具和任务遵循统一接口标准：
 
 全局 AppStateStore 基于发布-订阅模式：
 
-```
-AppStateStore (全局状态)
-    │
-    ├── toolPermissionContext  ← 权限状态
-    ├── mcpClients            ← MCP 连接
-    ├── tasks                  ← 任务状态
-    └── todos                  ← 待办事项
-         │
-         ▼
-    ToolUseContext ← 各组件订阅
-```
+| 层级 | 内容 |
+|------|------|
+| AppStateStore | 全局状态根节点 |
+| toolPermissionContext | 权限状态 |
+| mcpClients | MCP 连接 |
+| tasks | 任务状态 |
+| todos | 待办事项 |
+| ToolUseContext | 各组件订阅 |
 
 状态通过 context 层层传递，组件通过 `useAppState()` 订阅。
 
@@ -140,15 +132,12 @@ AppStateStore (全局状态)
 
 **工作流程**：
 
-```
-会话开始 → 构建 ToolUseContext（注入可用资源）
-                ↓
-        AI 推理决定调用工具
-                ↓
-        工具通过 context 获取所需资源
-                ↓
-        返回结果给 AI
-```
+| 步骤 | 说明 |
+|------|------|
+| 1 | 会话开始 → 构建 ToolUseContext（注入可用资源） |
+| 2 | AI 推理决定调用工具 |
+| 3 | 工具通过 context 获取所需资源 |
+| 4 | 返回结果给 AI |
 
 **好处**：
 - **可测试**：测试时可以注入 mock 的 context
@@ -165,9 +154,12 @@ Claude Code 的核心能力由以下模块协作实现。
 
 **调用流程**：
 
-```
-用户输入 → AI 推理 → 返回 tool_use 块 → Claude Code 执行
-```
+| 步骤 | 说明 |
+|------|------|
+| 1 | 用户输入 |
+| 2 | AI 推理 |
+| 3 | 返回 tool_use 块 |
+| 4 | Claude Code 执行 |
 
 **并行与串行**：由 AI 模型根据系统提示词决定。Claude Code 在提示词中告诉 AI：无关依赖的工具可以并行，有依赖的要串行。
 
@@ -177,26 +169,13 @@ Claude Code 的核心能力由以下模块协作实现。
 
 **职责**：管理对话上下文的大小，防止超出模型限制。
 
-Claude Code 采用**两层工具结果压缩 + 一层历史压缩**：
+Claude Code 采用**三层压缩体系**：
 
 | 层级 | 名称 | 触发条件 | 机制 |
 |------|------|----------|------|
-| 第一层 | Microcompact | 单个工具结果 > 50KB | 该结果立即持久化，替换为路径+预览 |
-| 第二层 | Per-Message Budget | 消息内结果总和 > 200KB | 选最大结果持久化，直到总和降到 200KB 以下 |
-| 第三层 | Context Collapse | 上下文接近上限 | AI 总结历史对话 |
-
-**Per-Message Budget 工作流程**：
-
-```
-1. AI 并行调用多个工具
-2. 每个工具结果先经过 Microcompact（>50KB 的直接存磁盘）
-3. 计算消息内所有结果的剩余总和
-4. 如果总和 > 200KB：
-   - 按大小排序，选择最大的结果
-   - 将其持久化并替换为预览
-   - 重新计算总和
-   - 重复直到总和 <= 200KB
-```
+| 第一层 | 工具结果压缩 | 单个工具结果 > 50KB 或总和 > 200KB | 持久化到磁盘，替换为路径+预览 |
+| 第二层 | 会话记忆压缩 | 上下文中积累的结构化事实 | 持续提取到文件，压缩时复用 |
+| 第三层 | 上下文折叠 | 上下文接近上限 | AI 总结历史对话 |
 
 ### 5.3 智能规划能力
 
@@ -214,28 +193,15 @@ Claude Code 采用**两层工具结果压缩 + 一层历史压缩**：
 
 **职责**：管理 7 种任务类型的生命周期和状态追踪。
 
-```
-src/tasks/
-├── LocalShellTask/       # 终端命令任务
-├── LocalAgentTask/      # 本地子 Agent 任务
-├── RemoteAgentTask/      # 远程 Agent 任务
-├── InProcessTeammateTask/ # 进程内队友任务
-├── LocalWorkflowTask/    # 本地工作流任务
-├── MonitorMcpTask/      # MCP 监控任务
-└── DreamTask/           # 做梦任务（自动分析）
-```
-
-**七大任务类型说明**：
-
 | 任务类型 | 说明 |
-|---------|------|
-| **LocalShellTask** | 终端命令任务 — 执行本地 shell 命令，如 `npm install`、`git status` 等 |
-| **LocalAgentTask** | 本地子 Agent 任务 — 在本地启动子 Agent 来并行处理子任务 |
-| **RemoteAgentTask** | 远程 Agent 任务 — 连接远程 Agent 实例进行协作 |
-| **InProcessTeammateTask** | 进程内队友任务 — 同进程内的队友协作，与子 Agent 不同在于共享同一进程状态 |
-| **LocalWorkflowTask** | 本地工作流任务 — 执行预定义的多步骤本地工作流 |
-| **MonitorMcpTask** | MCP 监控任务 — 监控 MCP (Model Context Protocol) 服务器的连接状态和健康检查 |
-| **DreamTask** | 做梦任务 — AI 自动分析任务，用于反思和规划，可能在空闲时触发 |
+|----------|------|
+| LocalShellTask | 终端命令任务 |
+| LocalAgentTask | 本地子 Agent 任务 |
+| RemoteAgentTask | 远程 Agent 任务 |
+| InProcessTeammateTask | 进程内队友任务 |
+| LocalWorkflowTask | 本地工作流任务 |
+| MonitorMcpTask | MCP 监控任务 |
+| DreamTask | 做梦任务（自动分析） |
 
 所有任务类型通过 `TaskState` 联合类型统一管理：
 
@@ -263,14 +229,13 @@ export type TaskState =
 
 **职责**：提供 100+ 斜杠命令供用户调用。
 
-```
-src/commands/
-├── commit.ts, branch.ts, diff.ts    # Git 相关
-├── config.ts, model.ts             # 配置相关
-├── compact.ts, context.ts          # 上下文相关
-├── mcp.ts, skills.ts               # 扩展相关
-└── ... (100+ 个命令)
-```
+| 分类 | 命令示例 |
+|------|----------|
+| Git 相关 | commit.ts, branch.ts, diff.ts |
+| 配置相关 | config.ts, model.ts |
+| 上下文相关 | compact.ts, context.ts |
+| 扩展相关 | mcp.ts, skills.ts |
+| 其他 | 100+ 个命令 |
 
 所有命令通过统一的 Command 接口注册：
 
@@ -311,4 +276,4 @@ export type Command = {
 ## 下一步
 
 ← [00_OVERVIEW.md](00_OVERVIEW.md) 回到学习路线图
-→ [02_BOOTSTRAP.md](02_BOOTSTRAP.md) 学习启动流程
+→ [02_STARTUP.md](02_STARTUP.md) 学习启动流程
