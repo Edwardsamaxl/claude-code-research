@@ -308,4 +308,4 @@ const forkCmd = feature('FORK_SUBAGENT')
 ## 下一步
 
 ← [04_PROACTIVE_BUDDY.md](04_PROACTIVE_BUDDY.md)
-→ [06_OTHER_FLAGS.md](06_OTHER_FLAGS.md)
+→ [练习题](../09_PRACTICE.md)
